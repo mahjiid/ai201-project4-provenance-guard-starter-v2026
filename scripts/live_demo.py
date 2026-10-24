@@ -1,7 +1,7 @@
 """Produce an honest, real-model Unit 7 sample in disposable GitHub Actions.
 
 This is NOT a security/accuracy benchmark. The writing is fictional.
-We refuse to rewrite existing logs so the script is safe to run in a clean CI clone.
+The script uses an isolated results-directory audit log so a rerun never writes to the committed instructional audit history.
 """
 import json
 import sys
@@ -22,8 +22,13 @@ SAMPLE = (
 )
 
 def main():
-    if audit.read_entries():
-        raise RuntimeError("Refusing to overwrite existing audit entries")
+    # The repository contains a previously verified sample log. Never mutate it.
+    # Use a fresh, isolated, untracked audit path per clean GitHub Actions run.
+    config.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    config.LOG_DIR = config.RESULTS_DIR
+    config.AUDIT_LOG = config.RESULTS_DIR / "unit7_live_audit.jsonl"
+    if config.AUDIT_LOG.exists():
+        raise RuntimeError("Refusing to overwrite a previously generated demo log")
     client = app.app.test_client()
     sent = {"text": SAMPLE, "creator_id": "fictional-test-writer"}
     submission = client.post("/submit", json=sent)
