@@ -36,138 +36,110 @@
 
 ## What This Does
 
-<!-- The path a submission takes, from arriving to the label a reader sees.
-     Six or seven steps — this is the trace you wrote in Milestone 1. -->
+Provenance Guard is a **local instructional backend service**, not an author-identification tool. It returns a cautious assessment of writing patterns and provides the writer with an appeal route.
 
+1. A writer sends JSON with `text` and `creator_id` to `POST /submit`. The service rejects missing, invalid, very short and oversized inputs before scoring.
+2. `detector.py::model_signal` measures GPT-2 word-sequence predictability. A higher value is more AI-like *according to that model*, not proof of authorship.
+3. `stylometry.py::style_signal` independently measures sentence-length variation, word variety, and punctuation density as a text-shape signal.
+4. `scoring.py::combine_signals` combines both readings and moves large disagreements toward uncertainty.
+5. `scoring.py::score_to_label` maps the combined result to one of three complete, non-accusatory reader messages.
+6. `audit.log_decision` writes a timestamped record with content ID, creator ID, two signals, score, label, and status in `logs/audit.jsonl`, without saving the submitted text.
+7. The response returns `content_id`, guess, confidence, both signal scores, reader label, and status. An author can challenge it via `POST /appeal`; `GET /content/<id>` shows whether the item is now `under_review`.
 
+**False-positive path:** If genuine human writing looks machine-like to GPT-2 and stylometry, the service may return the high-AI-pattern label. The message explicitly says this is **not proof**; the author may supply their explanation in an appeal, and the item is moved to `under_review` without automatic rescoring or punishment.
+
+This is an instructional service only. It lacks authenticated ownership checks, a private moderator console, calibration data, and access controls on the demo audit log. It should **not** be deployed publicly or used to sanction writers.
 
 ---
 
 ## Signals and Scoring
 
-<!-- For each signal: what property it measures, why that might differ between
-     human and AI writing, and WHAT IT CAN'T SEE.
-
-     The blind spot is not optional. If you can't name it you don't understand
-     the signal yet — and unit 8's attack set is built out of blind spots. -->
-
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** `detector.py::model_signal` transforms local GPT-2 perplexity (predictability) into a number from 0 to 1, where larger means a more predictable, AI-like word sequence.
 
-**Why that might differ between human and AI writing:**
+**Why it could differ:** Some model-generated prose follows very predictable sequences; human writing may contain more surprising language.
 
-**What it can't see:**
+**What it cannot see:** The person's identity, draft history, writing process, original ideas, AI assistance, or attribution. Plain human writing—including many second-language writers' prose—can be predictable; unusual generated writing can be unpredictable. This is a biased and uncalibrated heuristic.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** `stylometry.py::style_signal` independently computes:
+- **Sentence-length spread:** population standard deviation of words per sentence divided by average words per sentence. Low spread contributes more AI-like evidence.
+- **Word variety:** mean unique-word ratio in windows of up to 40 tokens. Repetition contributes more AI-like evidence.
+- **Punctuation density:** punctuation divided by the total non-whitespace characters. Sparse punctuation contributes more AI-like evidence.
 
-**Why that might differ between human and AI writing:**
+The three normalized features contribute **40%, 40%, and 20%** respectively. Texts shorter than 20 words or two sentences get neutral `0.5` from the shape signal.
 
-**What it can't see:**
+**Why it could differ:** Some generated passages use fairly even sentence lengths, limited word variety and repetitive punctuation.
+
+**What it cannot see:** Meaning, authorship, quotation boundaries, genre, or language context. Edited or translated text can shift these measurements without changing who authored the work. The signals are *different* but not proven statistically independent.
 
 ### The combining rule
 
-<!-- Write the rule in words, then give the numbers. What happens when the two
-     signals disagree? -->
+**Where it lives:** `scoring.py::combine_signals`. Weights and thresholds are in `config.py`.
 
-**The rule:**
+**Rule with numbers:**
 
-**The numbers:**
+```text
+raw = 0.65 * model_score + 0.35 * style_score
+shrinkage = min(0.70, max(0, abs(model_score - style_score) - 0.20))
+combined = (1 - shrinkage) * raw + shrinkage * 0.50
+```
 
-**Where it lives:** `scoring.py::combine_signals`
+For disagreement at model = `0.90`, style = `0.10`, the raw `0.62` shrinks to roughly `0.548`, which is **unsure**. This numeric example demonstrates the formula; it is not claimed to be an observed detector prediction.
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
-
-**A case where my two signals split, and what my rule does with it:**
-
-
+`confidence` in the response is the **uncalibrated AI-likeness combined score** from 0–1, not the statistical probability of AI authorship. `decision_confidence` is merely the scaled distance from 0.5. Neither is proof that a human cheated.
 
 ---
 
 ## Label Variants
 
-<!-- The exact text of all three labels, as a reader would see them, and the
-     score range each covers.
-
-     Write them for someone who has never heard the word "threshold". -->
-
-| Label | Score range | The exact text a reader sees |
+| Label variant | Combined score range | Exact wording |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| High-confidence human pattern | `0.00 ≤ score ≤ 0.28` | The available signals lean toward human-written text, but they cannot verify who wrote it. |
+| Unsure | `0.28 < score < 0.78` | We cannot reliably determine how this text was written. No authorship accusation has been made, and the writer may request review. |
+| High-confidence AI-like pattern | `0.78 ≤ score ≤ 1.00` | This text shows some patterns associated with automated writing. That is not proof of authorship; the writer may request human review. |
 
-**Why I worded the "unsure" one this way:**
-<!-- It's the hardest of the three. It has to admit uncertainty without
-     sounding like an accusation, because the person reading it may well have
-     written every word themselves. -->
-
-
+The unsure label acknowledges uncertainty and makes no accusation. The AI-pattern label is deliberately cautious, because a wrong allegation against a genuine author is especially harmful.
 
 ---
 
 ## Sample Run
 
-<!-- One submission and one appeal, pasted as text: the request, the response,
-     and the log entries. -->
+The service and appeal behavior have **passed automated tests with mocked model-signal values**, including audit and error cases. That verifies service logic, **not** the quality of the real detector. A real local GPT-2 score and genuine HTTP submission/appeal transcript have not yet been confirmed, so no sample output is invented here.
 
-**A submission**
+**PowerShell commands for a real run:**
 
-<!-- The response needs content_id, guess, confidence, label, AND both
-     signal scores - model_score and style_score. Unit 8's tools read those
-     two off the response, so leaving them out costs you next unit's
-     diagnostics. -->
+```powershell
+# Terminal 1
+.\.venv\Scripts\python.exe app.py
 
-```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+# Terminal 2
+curl.exe -X POST http://127.0.0.1:5000/ping -H "Content-Type: application/json" -d '{\"message\":\"hello\"}'
+
+# Submission (replace the text with your own original writing)
+curl.exe -X POST http://127.0.0.1:5000/submit -H "Content-Type: application/json" -d '{\"text\":\"The long summer rain came without warning. I crossed the road and kept my notebook dry. When I reached the bakery, the lights were already on.\",\"creator_id\":\"demo-writer\"}'
+
+# Copy the returned content_id into the appeal body
+curl.exe -X POST http://127.0.0.1:5000/appeal -H "Content-Type: application/json" -d '{\"content_id\":\"REPLACE_WITH_ID\",\"reasoning\":\"I kept timestamped drafts of this original work.\"}'
+
+curl.exe "http://127.0.0.1:5000/log?limit=3"
 ```
 
-```json
+**The audit contract:** Submission appends `status: decided` with both scores. An appeal appends a second event with `event: appeal`, `status: under_review` and the same content ID; it does not overwrite the original decision. Automated tests verify this sequence. Raw writing is not logged.
 
-```
-
-**An appeal**
-
-```bash
-$ curl -X POST http://127.0.0.1:5000/appeal \
-  -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
-```
-
-```json
-
-```
-
-**What the log shows afterwards**
-
-```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
-```
-
-```json
-
-```
+**Current environment limitation:** ZairPlanet had fewer than the 9 GB of free disk space requested by the starter's full environment check. The GitHub workflow installs only Flask to check HTTP logic with explicit test doubles. The actual model installation and real reading remain a separate verification step.
 
 ---
 
 ## How I Used AI
 
-**Moment 1**
+**Moment 1 — backend and signal implementation:** I asked for help connecting the two independent signals to a Flask JSON endpoint with conservative uncertainty handling. Code and test cases were drafted. The design retains explicit errors and an appeal channel rather than treating any model output as proven cheating.
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+**Moment 2 — test and documentation quality:** I requested checks for invalid inputs, label boundary coverage, missing local model, and audit consistency. A test suite and README explanation were prepared. The suite clearly marks model predictions as mocked, so it does not claim to validate detector accuracy or to have completed a live-model run.
 
-**Moment 2**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+**Criterion ownership:** The five numbered acceptance criteria are intentionally left for my own selections and reasons in `criteria.md` before a held-out evaluation. No five targets have been invented and attributed to me.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
