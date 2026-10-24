@@ -36,5 +36,5 @@ jobs:
           name: unit7-real-sample
           path: |
             results/unit7_live_sample.json
-            logs/audit.jsonl
+            results/unit7_live_audit.jsonl
           if-no-files-found: warn
