@@ -199,17 +199,54 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    import detector
+    import scoring
+    import stylometry
 
-    # TODO: delete this and build the route.
-    return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        audit.log_rejection(creator_id="unknown", reason="invalid_json")
+        return jsonify({"error": "invalid_json", "message": "Send a JSON object."}), 400
+
+    creator_id, text = payload.get("creator_id"), payload.get("text")
+    if not isinstance(creator_id, str) or not 1 <= len(creator_id.strip()) <= 128:
+        audit.log_rejection(creator_id="unknown", reason="invalid_creator_id")
+        return jsonify({"error": "invalid_creator_id",
+                        "message": "creator_id must be nonempty (max 128 characters)."}), 400
+    creator_id = creator_id.strip()
+    if not isinstance(text, str) or len(text.strip()) < 20:
+        audit.log_rejection(creator_id=creator_id, reason="invalid_text")
+        return jsonify({"error": "invalid_text",
+                        "message": "text must contain at least 20 characters."}), 422
+    if len(text) > 12000:
+        audit.log_rejection(creator_id=creator_id, reason="text_too_long")
+        return jsonify({"error": "text_too_long",
+                        "message": "text must be 12,000 characters or fewer."}), 413
+
+    try:
+        model_score = detector.model_signal(text)
+        style_score = stylometry.style_signal(text)
+        confidence = scoring.combine_signals(model_score, style_score)
+        guess, label = scoring.score_to_label(confidence)
+    except detector.DetectorUnavailable:
+        audit.log_rejection(creator_id=creator_id, reason="model_unavailable")
+        return jsonify({"error": "model_unavailable",
+                        "message": "The local language model is unavailable. Try again after setup."}), 503
+    except ValueError:
+        audit.log_rejection(creator_id=creator_id, reason="unscorable_text")
+        return jsonify({"error": "unscorable_text",
+                        "message": "This text cannot be reliably scored."}), 422
+
+    content_id = str(uuid.uuid4())
+    audit.log_decision(content_id=content_id, creator_id=creator_id,
+                       guess=guess, model_score=model_score,
+                       style_score=style_score, combined_score=confidence,
+                       label=label, status="decided", text_chars=len(text))
+    return jsonify({"content_id": content_id, "creator_id": creator_id,
+                    "guess": guess, "confidence": confidence,
+                    "decision_confidence": round(abs(confidence - 0.5) * 2, 4),
+                    "model_score": model_score, "style_score": style_score,
+                    "label": label, "status": "decided"}), 201
 
 
 @app.post("/appeal")
@@ -232,14 +269,45 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "invalid_json", "message": "Send a JSON object."}), 400
+    content_id, reasoning = payload.get("content_id"), payload.get("reasoning")
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "invalid_content_id",
+                        "message": "A content_id is required."}), 400
+    if not isinstance(reasoning, str) or not 10 <= len(reasoning.strip()) <= 2000:
+        return jsonify({"error": "invalid_reasoning",
+                        "message": "Reasoning must be 10 to 2,000 characters."}), 422
+    content_id = content_id.strip()
+    entries = audit.entries_for(content_id)
+    original = next((e for e in entries if e.get("status") == "decided"), None)
+    if original is None:
+        return jsonify({"error": "not_found", "message": "Unknown content_id."}), 404
+    if any(e.get("event") == "appeal" for e in entries):
+        return jsonify({"error": "already_under_review",
+                        "message": "This content already has a pending appeal."}), 409
+    # A production site must authenticate the claimant and restrict log access.
+    audit.log_appeal(content_id=content_id, creator_id=original["creator_id"],
+                     reasoning=reasoning.strip())
+    return jsonify({"content_id": content_id, "status": "under_review",
+                    "message": "Your appeal is recorded for human review. "
+                               "No automated authorship finding is final."}), 200
 
-    # TODO: delete this and build the route.
-    return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+
+# ── Optional local content-status route ──────────────────────────────────────
+
+@app.get("/content/<content_id>")
+def get_content(content_id):
+    """Read latest status; public deployments require authenticated access."""
+    entries = audit.entries_for(content_id)
+    original = next((e for e in entries if e.get("status") == "decided"), None)
+    if original is None:
+        return jsonify({"error": "not_found", "message": "Unknown content_id."}), 404
+    status = "under_review" if any(e.get("event") == "appeal" for e in entries) else "decided"
+    return jsonify({"content_id": content_id, "status": status,
+                    "guess": original.get("guess"), "label": original.get("label"),
+                    "confidence": original.get("combined_score")}), 200
 
 
 # ── Already works ─────────────────────────────────────────────────────────────
