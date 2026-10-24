@@ -1,0 +1,32 @@
+name: Unit 7 Provenance Guard checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - app.py
+      - scoring.py
+      - stylometry.py
+      - config.py
+      - audit.py
+      - detector.py
+      - test_provenance_service.py
+      - .github/workflows/unit7-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install lightweight HTTP dependencies without downloading model
+        run: python -m pip install "flask>=3.0,<4.0"
+      - name: Check service, thresholds, appeal trail and failure modes
+        run: python -m unittest test_provenance_service.py -v
+      - name: Verify modules compile and original criteria remain unaltered
+        run: |
+          python -m py_compile app.py audit.py scoring.py stylometry.py config.py detector.py
+          test -f criteria.md
