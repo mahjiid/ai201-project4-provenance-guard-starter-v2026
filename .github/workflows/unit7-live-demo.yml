@@ -1,0 +1,40 @@
+name: Unit 7 real local-model demonstration
+on:
+  push:
+    paths:
+      - .github/workflows/unit7-live-demo.yml
+      - scripts/live_demo.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real_gpt2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only PyTorch
+        run: python -m pip install --no-cache-dir 'torch>=2.2,<3' --index-url https://download.pytorch.org/whl/cpu
+      - name: Install service, GPT-2 transformers, and validators
+        run: python -m pip install --no-cache-dir 'flask>=3.0,<4' 'transformers>=4.44,<5' 'numpy<3' 'safetensors>=0.4'
+      - name: Run real local-GPT-2 detector through submission and appeal
+        env:
+          HF_HOME: ${{ runner.temp }}/hf
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          AI201_DEBUG: '0'
+        run: python scripts/live_demo.py
+      - name: Unit 7 route regression
+        run: python -m unittest test_provenance_service.py -v
+      - name: Upload real demonstration, not a claim about detector accuracy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit7-real-sample
+          path: |
+            results/unit7_live_sample.json
+            logs/audit.jsonl
+          if-no-files-found: warn
