@@ -107,29 +107,96 @@ The unsure label acknowledges uncertainty and makes no accusation. The AI-patter
 
 ## Sample Run
 
-The service and appeal behavior have **passed automated tests with mocked model-signal values**, including audit and error cases. That verifies service logic, **not** the quality of the real detector. A real local GPT-2 score and genuine HTTP submission/appeal transcript have not yet been confirmed, so no sample output is invented here.
+**Verified on October 24, 2026** through Flask's HTTP test client running the **actual local GPT-2 model on a GitHub Actions Linux CPU runner**. No model signal was mocked in this example. The submitted text and creator identifier are fictional. This single example tests workflow operation, **not accuracy or calibrated authorship probability**.
 
-**PowerShell commands for a real run:**
+[Real execution record](https://github.com/mahjiid/ai201-project4-provenance-guard-starter-v2026/actions/runs/40071278674) · [Saved complete response](results/unit7_live_sample.json) · [Append-only audit log](logs/audit.jsonl)
 
-```powershell
-# Terminal 1
-.\.venv\Scripts\python.exe app.py
+**Submission request — `POST /submit`**
 
-# Terminal 2
-curl.exe -X POST http://127.0.0.1:5000/ping -H "Content-Type: application/json" -d '{\"message\":\"hello\"}'
-
-# Submission (replace the text with your own original writing)
-curl.exe -X POST http://127.0.0.1:5000/submit -H "Content-Type: application/json" -d '{\"text\":\"The long summer rain came without warning. I crossed the road and kept my notebook dry. When I reached the bakery, the lights were already on.\",\"creator_id\":\"demo-writer\"}'
-
-# Copy the returned content_id into the appeal body
-curl.exe -X POST http://127.0.0.1:5000/appeal -H "Content-Type: application/json" -d '{\"content_id\":\"REPLACE_WITH_ID\",\"reasoning\":\"I kept timestamped drafts of this original work.\"}'
-
-curl.exe "http://127.0.0.1:5000/log?limit=3"
+```json
+{
+  "text": "The first rain reached the small library just before sunset. A woman at the entrance folded a yellow umbrella and stepped inside. Across the room, a student carefully copied the date into a notebook. The city grew quieter as the shutters came down, and everyone waited for the clouds to pass before walking home.",
+  "creator_id": "fictional-test-writer"
+}
 ```
 
-**The audit contract:** Submission appends `status: decided` with both scores. An appeal appends a second event with `event: appeal`, `status: under_review` and the same content ID; it does not overwrite the original decision. Automated tests verify this sequence. Raw writing is not logged.
+**Response — HTTP 201 Created**
 
-**Current environment limitation:** ZairPlanet had fewer than the 9 GB of free disk space requested by the starter's full environment check. The GitHub workflow installs only Flask to check HTTP logic with explicit test doubles. The actual model installation and real reading remain a separate verification step.
+```json
+{
+  "confidence": 0.4938,
+  "content_id": "63e3d00d-07d8-4454-809f-0cf4123ff1e2",
+  "creator_id": "fictional-test-writer",
+  "decision_confidence": 0.0124,
+  "guess": "unsure",
+  "label": "We cannot reliably determine how this text was written. No authorship accusation has been made, and the writer may request review.",
+  "model_score": 0.5224,
+  "status": "decided",
+  "style_score": 0.4407
+}
+```
+
+The model and surface signal produced `0.5224` and `0.4407`. The combined AI-likeness value was `0.4938`, which falls in the **unsure** band. The text was not declared AI-generated and no sanction occurred.
+
+**Appeal request — `POST /appeal`**
+
+```json
+{
+  "content_id": "63e3d00d-07d8-4454-809f-0cf4123ff1e2",
+  "reasoning": "This is my original story. I kept timestamped working notes."
+}
+```
+
+**Response — HTTP 200 OK**
+
+```json
+{
+  "content_id": "63e3d00d-07d8-4454-809f-0cf4123ff1e2",
+  "message": "Your appeal is recorded for human review. No automated authorship finding is final.",
+  "status": "under_review"
+}
+```
+
+**After the appeal — `GET /content/63e3d00d-07d8-4454-809f-0cf4123ff1e2`**
+
+```json
+{
+  "confidence": 0.4938,
+  "content_id": "63e3d00d-07d8-4454-809f-0cf4123ff1e2",
+  "guess": "unsure",
+  "label": "We cannot reliably determine how this text was written. No authorship accusation has been made, and the writer may request review.",
+  "status": "under_review"
+}
+```
+
+**Audit log — the original decision remains, followed by the appeal**
+
+```json
+[
+  {
+    "timestamp": "2026-10-24T06:43:23+00:00",
+    "content_id": "63e3d00d-07d8-4454-809f-0cf4123ff1e2",
+    "creator_id": "fictional-test-writer",
+    "guess": "unsure",
+    "model_score": 0.5224,
+    "style_score": 0.4407,
+    "combined_score": 0.4938,
+    "label": "We cannot reliably determine how this text was written. No authorship accusation has been made, and the writer may request review.",
+    "status": "decided",
+    "text_chars": 312
+  },
+  {
+    "timestamp": "2026-10-24T06:43:23+00:00",
+    "content_id": "63e3d00d-07d8-4454-809f-0cf4123ff1e2",
+    "creator_id": "fictional-test-writer",
+    "event": "appeal",
+    "status": "under_review",
+    "reasoning": "This is my original story. I kept timestamped working notes."
+  }
+]
+```
+
+The live result verifies that the same `content_id` links both events, the status becomes `under_review`, and both signal scores are retained. The audit log does not contain the submitted story itself.
 
 ---
 
