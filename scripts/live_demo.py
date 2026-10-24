@@ -4,7 +4,10 @@ This is NOT a security/accuracy benchmark. The writing is fictional.
 We refuse to rewrite existing logs so the script is safe to run in a clean CI clone.
 """
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import app
 import audit
