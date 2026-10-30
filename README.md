@@ -206,7 +206,25 @@ The live result verifies that the same `content_id` links both events, the statu
 
 **Moment 2 — test and documentation quality:** I requested checks for invalid inputs, label boundary coverage, missing local model, and audit consistency. A test suite and README explanation were prepared. The suite clearly marks model predictions as mocked, so it does not claim to validate detector accuracy or to have completed a live-model run.
 
-**Criterion ownership:** The five numbered acceptance criteria are intentionally left for my own selections and reasons in `criteria.md` before a held-out evaluation. No five targets have been invented and attributed to me.
+**Moment 3 — AI-assisted acceptance-criteria draft (October 30, 2026):**
+After requesting that the remaining project work be completed, I used AI to propose five measurable targets and their reasons. The assistant produced a draft in `criteria.md`, a structural checker, and reproducible API contract tests. These are **AI-assisted proposed choices, not five independently written student criteria**. The student must personally review, edit where needed, and be able to defend the targets before submission.
+
+**Timing disclosure:** Earlier live-model results and audit entries are dated **October 24, 2026**. The proposed criteria were committed **October 30, 2026**, so they cannot honestly be described as pre-dating *all* prior results. They are intended to be frozen **before the Unit 8 held-out attack-set evaluation**.
+
+### Unit 7 acceptance-contract readiness
+
+The five proposed targets are documented in `criteria.md`. Run the structural checker and the mocked HTTP contract tests:
+
+```bash
+python check_criteria.py
+python -m unittest -v test_provenance_service test_unit7_acceptance
+```
+
+The GitHub Actions workflow `.github/workflows/unit7-readiness.yml` runs these same checks on relevant pushes. Its controlled/model-mocked tests verify threshold boundaries, three labels, successful appeals, eight malformed-input cases, and disagreement-to-uncertainty behavior. **They do not establish who authored a text.**
+
+**Ground-truth limitation (criterion 1):** The genuine-human false-positive test is deliberately marked as skipped until ten verifiably writer-authored passages are supplied and frozen before the attack set. Do not replace those passages with AI-generated, paraphrased, or unverified examples. No passing false-positive result has been claimed.
+
+**Submission integrity:** Use the existing GitHub repository and preserve all original commits. This technical implementation can be reviewed now, but the course asks for five criteria chosen by the writer; their personal approval and authorship requirement remains outstanding.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
