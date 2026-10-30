@@ -29,7 +29,7 @@ jobs:
           python-version: "3.11"
       - name: Install only the packages needed for mocked HTTP contract tests
         run: python -m pip install --disable-pip-version-check 'flask>=3,<4'
-      - name: Verify all five proposed criteria have statements and explanations
+      - name: Check the five criteria have statements and explanations
         run: python check_criteria.py
       - name: Regression and acceptance-contract tests
         env:
