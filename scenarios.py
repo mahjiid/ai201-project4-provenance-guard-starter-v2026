@@ -1,118 +1,95 @@
+"""Unit 8 evaluation scenarios for the two criteria that require live /submit.
+
+Criterion 1 requires ten ACTUAL human-authored samples from the writer.
+Criterion 4 sends malformed HTTP JSON bodies.
+Criteria 2, 3, and 5 are tested with controlled signal injection through
+test_unit7_acceptance.py, including the POST /appeal route.
+
+Do not invent or AI-generate human ground truth. Save ten original passages
+privately as a JSON array at data/human_originals.private.json (gitignored),
+or set PROVENANCE_HUMAN_CORPUS to the path of another JSON array.
 """
-What your test runs. ← UNIT 8, MILESTONE 3
+from __future__ import annotations
 
-Each of your five criteria needs something run against it. A criterion about
-false positives needs your own writing. One about label coverage needs inputs
-across the score range. One about the appeal path needs a real content_id.
+import json
+import os
+from pathlib import Path
 
-Working that out is Milestone 3's first step, and this file is where you write
-it down. `run_eval.py` runs everything here three times.
+ROOT = Path(__file__).resolve().parent
+ORIGINALS = Path(os.getenv(
+    "PROVENANCE_HUMAN_CORPUS",
+    str(ROOT / "data" / "human_originals.private.json"),
+))
 
-Two are filled in as examples. Replace them with what your criteria actually
-need — these are a shape, not a set.
 
-A scenario carries **either** of these:
+def load_originals() -> list[str]:
+    if not ORIGINALS.is_file():
+        return []
+    try:
+        payload = json.loads(ORIGINALS.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Could not read genuine writing corpus: {exc}") from exc
+    if not isinstance(payload, list) or any(not isinstance(t, str) for t in payload):
+        raise ValueError("The authentic corpus must be a JSON array of strings.")
+    return payload
 
-    "texts"   a list of strings. Each is sent as {"text": ..., "creator_id": ...}
-              with a creator_id made up for you. Use this for most criteria.
-
-    "bodies"  a list of whole request bodies, sent exactly as written. Use this
-              when the malformed request IS the point — empty text, no `text`
-              field at all, something enormous. A bad-input criterion needs it,
-              because you cannot express "the field is missing" as a string.
-"""
 
 SCENARIOS = [
     {
-        "name": "my own writing",
+        "name": "verified human originals (private corpus, not AI-generated)",
         "criterion": 1,
-        # ⚠️ PUT YOUR OWN WRITING HERE. Not AI text, not a sample from the web —
-        # things you actually wrote. This is the criterion that matters most and
-        # it's meaningless with someone else's prose.
-        "texts": [
-            "REPLACE ME with a paragraph you wrote yourself.",
-            "REPLACE ME with another one. Ten pieces is the usual number.",
-        ],
+        "texts": load_originals(),
     },
     {
-        "name": "label coverage",
-        "criterion": 2,
-        # Inputs spread across your score range, so you can check all three
-        # labels are actually reachable.
-        "texts": [
-            "REPLACE ME with something you're confident is AI-generated.",
-            "REPLACE ME with something you're confident is human-written.",
-            "REPLACE ME with something genuinely borderline.",
+        "name": "malformed JSON object submissions",
+        "criterion": 4,
+        # The [] case is also tested in test_unit7_acceptance.py; run_eval's
+        # general-purpose bodies validation expects dictionaries only.
+        "bodies": [
+            {"text": "A complete paragraph to validate.", "creator_id": 1},
+            {"text": "A complete paragraph to validate."},
+            {"creator_id": "missing-text"},
+            {"text": "", "creator_id": "empty-text"},
+            {"text": None, "creator_id": "null-text"},
+            {"text": "short", "creator_id": "short-text"},
+            {"text": "z" * 12001, "creator_id": "oversized-text"},
         ],
     },
-    # A bad-input criterion looks like this. Uncomment and adjust if that's one
-    # of your five — these are raw request bodies, sent exactly as written.
-    #
-    # {
-    #     "name": "bad input",
-    #     "criterion": 3,
-    #     "bodies": [
-    #         {"text": "", "creator_id": "eval_bad_empty"},
-    #         {"creator_id": "eval_bad_missing"},          # no text field at all
-    #         {"text": "word " * 50000, "creator_id": "eval_bad_huge"},
-    #         {"text": None, "creator_id": "eval_bad_null"},
-    #     ],
-    # },
-
-    # TODO: add what your remaining criteria need.
-    #
-    # A criterion about the appeal path can't be tested by sending text alone;
-    # it needs a submission first and then an appeal against the content_id
-    # that came back. You'll need to test that one by hand, or extend this file
-    # and run_eval.py to do it. Saying which you did is part of the write-up.
 ]
 
 
 def validate() -> list[str]:
-    """
-    Complain about anything malformed, before a long run rather than during.
+    """Stop invalid evaluations BEFORE sending requests, with candid errors."""
+    problems: list[str] = []
+    passages = SCENARIOS[0]["texts"]
 
-    A "bodies" scenario is deliberately exempt from the empty check — an empty
-    string is the whole point of a bad-input case, and refusing to run one
-    would make that criterion untestable.
-    """
-    problems = []
+    if len(passages) != 10:
+        problems.append(
+            f"Criterion 1 requires exactly 10 genuinely human-authored passages; "
+            f"found {len(passages)} at {ORIGINALS}. No AI-generated substitute."
+        )
+    for i, text in enumerate(passages, 1):
+        if not text.strip() or len(text.strip()) < 20 or len(text) > 12000:
+            problems.append(
+                f"Authentic passage {i} must contain 20-12,000 characters."
+            )
+
     for i, scenario in enumerate(SCENARIOS, 1):
         if not scenario.get("name"):
-            problems.append(f"scenario {i} has no name")
-
-        texts = scenario.get("texts")
-        bodies = scenario.get("bodies")
-
-        if texts and bodies:
-            problems.append(
-                f"scenario {i} ('{scenario.get('name')}') has both texts and "
-                f"bodies — pick one"
-            )
-            continue
-
-        if bodies:
-            for j, body in enumerate(bodies, 1):
-                if not isinstance(body, dict):
-                    problems.append(
-                        f"scenario {i}, body {j} is not a dict — bodies are whole "
-                        f"request bodies, like {{'text': '', 'creator_id': 'x'}}"
-                    )
-            continue
-
-        if not texts:
-            problems.append(f"scenario {i} has no texts and no bodies")
-            continue
-
-        for j, text in enumerate(texts, 1):
-            if not str(text).strip():
-                problems.append(
-                    f"scenario {i}, text {j} is empty — if an empty submission is what "
-                    f"you're testing, use 'bodies' instead of 'texts'"
-                )
-            elif str(text).startswith("REPLACE ME"):
-                problems.append(
-                    f"scenario {i} ('{scenario.get('name')}'), text {j} is still "
-                    f"the placeholder"
-                )
+            problems.append(f"scenario {i} lacks a name")
+        if scenario.get("texts") and scenario.get("bodies"):
+            problems.append(f"scenario {i} has both texts and bodies")
+        for j, body in enumerate(scenario.get("bodies", []), 1):
+            if not isinstance(body, dict):
+                problems.append(f"scenario {i}, body {j} must be a JSON object")
     return problems
+
+
+if __name__ == "__main__":
+    import sys
+    problems = validate()
+    if problems:
+        for problem in problems:
+            print("NOT READY:", problem)
+        sys.exit(1)
+    print("READY: ten original human passages and bad-input scenarios are configured.")
