@@ -15,7 +15,7 @@ import re
 import sys
 from pathlib import Path
 
-HEADING = re.compile(r"(?m)^##\s+([1-5])\.\s*([^\n]*)$")
+HEADING = re.compile(r"(?m)^##[ \t]+([1-5])\.[ \t]*([^\n]*)$")
 REASON = re.compile(r"\*\*Why this target:\*\*", re.IGNORECASE)
 NUMERIC = re.compile(r"(?<!\w)\d+(?:\.\d+)?(?:\s*%)?(?!\w)")
 
