@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Pre-submission structural check for five Unit 7 acceptance criteria.
 
-This is a structural checker, not an AI criterion generator or a grader.
-It checks that each numbered item has a meaningful statement and a reason;
-the student must personally review, defend, and validate acceptance targets.
+It checks that each numbered item contains a meaningful statement and a reason.
+The writer must still review, defend, and validate the targets.
 
 Usage:
     python check_criteria.py
@@ -59,7 +58,7 @@ def check(path: Path) -> int:
             print(f"REVIEW criterion {number}: no number found; make sure its outcome is plainly observable.")
 
     if problems:
-        print("NOT READY — criteria.md needs complete proposed targets:\n")
+        print("NOT READY — criteria.md needs complete acceptance targets:\n")
         for item in problems:
             print(" - " + item)
         print("\nReview and personally choose five measurable targets before Unit 8 evaluation.")
