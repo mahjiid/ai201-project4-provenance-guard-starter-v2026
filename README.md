@@ -226,6 +226,42 @@ The GitHub Actions workflow `.github/workflows/unit7-readiness.yml` runs these s
 
 **Submission integrity:** Use the existing GitHub repository and preserve all original commits. This technical implementation can be reviewed now, but the course asks for five criteria chosen by the writer; their personal approval and authorship requirement remains outstanding.
 
+### Unit 8 evaluation preparation (not a completed attack run)
+
+`scenarios.py` has been prepared for the still-unseen Unit 8 evaluation.
+Criterion 1 needs **ten genuinely original human-written passages** saved on the
+writer's machine as a private JSON array in
+`data/human_originals.private.json` (the file is gitignored). Alternatively
+set the `PROVENANCE_HUMAN_CORPUS` environment variable to that JSON file's
+full path. No authentic writer corpus was available when this work was done.
+The service must never label assistant-generated writing as ground-truth human.
+
+When the writer's corpus is ready and the official Unit 8 attack set is
+provided, run on the **local machine**:
+
+```powershell
+python check_criteria.py
+python -m unittest -v test_provenance_service test_unit7_acceptance
+python scenarios.py
+python app.py
+```
+
+Then, from a second PowerShell terminal in the same virtual environment:
+
+```powershell
+python run_eval.py --label before
+python run_attacks.py --set PATH_TO_OFFICIAL_UNIT8_ATTACK_SET --label before
+```
+
+`run_eval.py` evaluates live submissions for the human-writing and malformed
+input cases. The deterministic contract tests cover the exact labels,
+disagreement, and appeal-path criteria. The official attack-set path is
+deliberately not invented here. Rate limiting stays **OFF** during Unit 7 and
+must be enabled and demonstrated during Unit 8.
+
+**No Unit 8 before/after verdicts, measured false-positive rate, or attack
+results are claimed yet.**
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
