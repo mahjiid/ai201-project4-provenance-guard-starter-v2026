@@ -1,0 +1,41 @@
+name: Unit 7 criteria and API contract checks
+
+on:
+  push:
+    paths:
+      - "app.py"
+      - "audit.py"
+      - "config.py"
+      - "scoring.py"
+      - "stylometry.py"
+      - "criteria.md"
+      - "check_criteria.py"
+      - "test_provenance_service.py"
+      - "test_unit7_acceptance.py"
+      - ".github/workflows/unit7-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract_checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only the packages needed for mocked HTTP contract tests
+        run: python -m pip install --disable-pip-version-check 'flask>=3,<4'
+      - name: Verify all five proposed criteria have statements and explanations
+        run: python check_criteria.py
+      - name: Regression and acceptance-contract tests
+        env:
+          AI201_DEBUG: "0"
+        run: python -m unittest -v test_provenance_service test_unit7_acceptance
+      - name: Be transparent about ground-truth evaluation
+        run: |
+          echo "One test is intentionally skipped: genuine writer samples have not been provided."
+          echo "These tests use mocked model signals and cannot establish detector accuracy."
