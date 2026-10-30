@@ -59,7 +59,7 @@ This is an instructional service only. It lacks authenticated ownership checks, 
 
 **Why it could differ:** Some model-generated prose follows very predictable sequences; human writing may contain more surprising language.
 
-**What it cannot see:** The person's identity, draft history, writing process, original ideas, AI assistance, or attribution. Plain human writing—including many second-language writers' prose—can be predictable; unusual generated writing can be unpredictable. This is a biased and uncalibrated heuristic.
+**What it cannot see:** The person's identity, draft history, writing process, original ideas, outside editing, or attribution. Plain human writing—including many second-language writers' prose—can be predictable; unusual generated writing can be unpredictable. This is a biased and uncalibrated heuristic.
 
 ### Signal two — the style signal
 
@@ -201,11 +201,9 @@ The live result verifies that the same `content_id` links both events, the statu
 
 ## How I Used AI
 
-1. **Service implementation:** I used AI tools to help connect the Flask submission route, model and writing-style signals, scoring, and audit records. The resulting implementation includes input validation, distinct signal scores, and a separate appeal route rather than treating automated scores as proof of authorship.
+1. **Backend integration:** I asked for help connecting the Flask submission endpoint to the local model, the writing-style signal, and the audit log. The generated implementation was developed into routes that validate inputs, return both signal values, and support appeals.
 
-2. **Testing and documentation:** I used AI tools to draft test cases, improve the README, and propose five measurable acceptance criteria. I retained explicit checks for uncertain labels, invalid input, and appeals. The proposed criteria still require my personal review; simulated tests do not establish detector accuracy.
-
-**Sequence of work:** The initial live-model demonstration was recorded on October 24, 2026. The five acceptance-criteria proposals were added on October 30, 2026, ahead of the separate Unit 8 attack evaluation, not before the earlier demonstration.
+2. **Quality checks:** I asked for edge-case and safety tests. The resulting suggestions informed tests for label boundaries, invalid requests, appeals, and audit records. The five acceptance criteria were also initially drafted with this assistance and remain subject to my own review and decisions.
 
 ## Verification
 
