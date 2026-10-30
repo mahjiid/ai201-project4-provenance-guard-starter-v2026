@@ -202,42 +202,28 @@ The live result verifies that the same `content_id` links both events, the statu
 
 ## How I Used AI
 
-**Moment 1 — backend and signal implementation:** I asked for help connecting the two independent signals to a Flask JSON endpoint with conservative uncertainty handling. Code and test cases were drafted. The design retains explicit errors and an appeal channel rather than treating any model output as proven cheating.
+1. **Service implementation:** I used AI tools to help connect the Flask submission route, model and writing-style signals, scoring, and audit records. The resulting implementation includes input validation, distinct signal scores, and a separate appeal route rather than treating automated scores as proof of authorship.
 
-**Moment 2 — test and documentation quality:** I requested checks for invalid inputs, label boundary coverage, missing local model, and audit consistency. A test suite and README explanation were prepared. The suite clearly marks model predictions as mocked, so it does not claim to validate detector accuracy or to have completed a live-model run.
+2. **Testing and documentation:** I used AI tools to draft test cases, improve the README, and propose five measurable acceptance criteria. I retained explicit checks for uncertain labels, invalid input, and appeals. The proposed criteria still require my personal review; simulated tests do not establish detector accuracy.
 
-**Moment 3 — AI-assisted acceptance-criteria draft (October 30, 2026):**
-After requesting that the remaining project work be completed, I used AI to propose five measurable targets and their reasons. The assistant produced a draft in `criteria.md`, a structural checker, and reproducible API contract tests. These are **AI-assisted proposed choices, not five independently written student criteria**. The student must personally review, edit where needed, and be able to defend the targets before submission.
+**Sequence of work:** The initial live-model demonstration was recorded on October 24, 2026. The five acceptance-criteria proposals were added on October 30, 2026, ahead of the separate Unit 8 attack evaluation, not before the earlier demonstration.
 
-**Timing disclosure:** Earlier live-model results and audit entries are dated **October 24, 2026**. The proposed criteria were committed **October 30, 2026**, so they cannot honestly be described as pre-dating *all* prior results. They are intended to be frozen **before the Unit 8 held-out attack-set evaluation**.
+## Verification
 
-### Unit 7 acceptance-contract readiness
-
-The five proposed targets are documented in `criteria.md`. Run the structural checker and the mocked HTTP contract tests:
+Run the criteria structure check and API contract tests:
 
 ```bash
 python check_criteria.py
 python -m unittest -v test_provenance_service test_unit7_acceptance
 ```
 
-The GitHub Actions workflow `.github/workflows/unit7-readiness.yml` runs these same checks on relevant pushes. Its controlled/model-mocked tests verify threshold boundaries, three labels, successful appeals, eight malformed-input cases, and disagreement-to-uncertainty behavior. **They do not establish who authored a text.**
+The GitHub Actions workflow `.github/workflows/unit7-readiness.yml` also runs these checks. Controlled signal values verify routes, label boundaries, appeals, and rejection behavior; they do not measure real-world authorship accuracy. The false-positive criterion remains **unevaluated** pending ten genuinely human-authored passages.
 
-**Ground-truth limitation (criterion 1):** The genuine-human false-positive test is deliberately marked as skipped until ten verifiably writer-authored passages are supplied and frozen before the attack set. Do not replace those passages with AI-generated, paraphrased, or unverified examples. No passing false-positive result has been claimed.
+## Unit 8 Preparation
 
-**Submission integrity:** Use the existing GitHub repository and preserve all original commits. This technical implementation can be reviewed now, but the course asks for five criteria chosen by the writer; their personal approval and authorship requirement remains outstanding.
+For the false-positive evaluation, save ten original human-written passages as a JSON array in `data/human_originals.private.json`. This file is gitignored. Alternatively, set `PROVENANCE_HUMAN_CORPUS` to the path of the corpus file. Do not use synthetic passages as human ground truth.
 
-### Unit 8 evaluation preparation (not a completed attack run)
-
-`scenarios.py` has been prepared for the still-unseen Unit 8 evaluation.
-Criterion 1 needs **ten genuinely original human-written passages** saved on the
-writer's machine as a private JSON array in
-`data/human_originals.private.json` (the file is gitignored). Alternatively
-set the `PROVENANCE_HUMAN_CORPUS` environment variable to that JSON file's
-full path. No authentic writer corpus was available when this work was done.
-The service must never label assistant-generated writing as ground-truth human.
-
-When the writer's corpus is ready and the official Unit 8 attack set is
-provided, run on the **local machine**:
+Run the following in the project environment:
 
 ```powershell
 python check_criteria.py
@@ -246,21 +232,16 @@ python scenarios.py
 python app.py
 ```
 
-Then, from a second PowerShell terminal in the same virtual environment:
+In a second terminal, once the official Unit 8 attack set is provided:
 
 ```powershell
 python run_eval.py --label before
 python run_attacks.py --set PATH_TO_OFFICIAL_UNIT8_ATTACK_SET --label before
 ```
 
-`run_eval.py` evaluates live submissions for the human-writing and malformed
-input cases. The deterministic contract tests cover the exact labels,
-disagreement, and appeal-path criteria. The official attack-set path is
-deliberately not invented here. Rate limiting stays **OFF** during Unit 7 and
-must be enabled and demonstrated during Unit 8.
+The held-out attack evaluation and subsequent before/after analysis are **not yet complete**. Rate limiting remains off during Unit 7 and is enabled separately in Unit 8.
 
-**No Unit 8 before/after verdicts, measured false-positive rate, or attack
-results are claimed yet.**
+---
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
