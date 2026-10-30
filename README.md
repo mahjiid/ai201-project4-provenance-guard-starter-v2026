@@ -18,10 +18,9 @@
 >   -d '{"message": "hello"}'
 > ```
 >
-> That's a web service. Something sent it text and it sent something back.
-> Everything this unit is filling in the middle.
->
-> **The rest of this file is your submission.** Fill it in as you go.
+> The service also exposes `POST /submit`, `POST /appeal`, and
+> `GET /content/<content_id>`. See the sections below for the API contract,
+> scoring rules, reader labels, and demonstrated results.
 
 ---
 
